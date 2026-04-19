@@ -16,6 +16,31 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Artifacts
+
+### BookShelf (Mobile App) — `artifacts/bookshelf`
+An Expo React Native mobile app for managing a personal book library.
+
+**Features:**
+- ISBN barcode scanning (expo-camera) to look up books via Google Books API
+- Full book details: title, authors, description, page count, publisher, cover, categories
+- Mark books as Unread, Currently Reading, or Finished
+- Page progress tracking with visual progress bar
+- Star ratings for finished books
+- Library filtering by status (all / reading / read / unread)
+- Sorting by date added, title, author, page count
+- Grouping by status or category
+- Stats page with reading totals
+- All data persisted locally via AsyncStorage
+
+**Key files:**
+- `context/LibraryContext.tsx` — global state with AsyncStorage persistence
+- `utils/googleBooks.ts` — Google Books API integration
+- `app/(tabs)/index.tsx` — Library list with filter/sort/group
+- `app/(tabs)/scanner.tsx` — ISBN barcode scanner
+- `app/(tabs)/settings.tsx` — Stats overview
+- `app/book/[id].tsx` — Book detail screen
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages
