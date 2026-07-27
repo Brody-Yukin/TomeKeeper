@@ -46,9 +46,21 @@ interface CoverAnalysis {
 }
 
 function apiUrl(path: string): string {
+  // Prefer an explicit API base URL; fall back to the injected deployment
+  // domain (the platform proxy routes /api/* to the API server in both
+  // development and production).
+  const base = process.env.EXPO_PUBLIC_API_URL;
+  if (base) return `${base.replace(/\/$/, "")}${path}`;
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (domain) return `https://${domain}${path}`;
   return path;
+}
+
+const MIN_COVER_CONFIDENCE = 0.55;
+
+function isValidIsbn(isbn: string): boolean {
+  const clean = isbn.replace(/[^0-9Xx]/g, "");
+  return clean.length === 10 || clean.length === 13;
 }
 
 export default function ScannerScreen() {
@@ -62,6 +74,7 @@ export default function ScannerScreen() {
   const [foundBook, setFoundBook] = useState<BookInfo | null>(null);
   const [manualISBN, setManualISBN] = useState("");
   const [candidates, setCandidates] = useState<BookInfo[]>([]);
+  const [coverError, setCoverError] = useState("");
   const [cameraReady, setCameraReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
@@ -105,42 +118,83 @@ export default function ScannerScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.5,
+        quality: 0.6,
         base64: true,
-        skipProcessing: true,
       });
       if (!photo?.base64) {
+        setCoverError(
+          "We couldn't capture a photo. Please try again.",
+        );
         setPhase("cover-not-found");
         return;
       }
       setPhase("cover-loading");
 
-      const resp = await fetch(apiUrl("/api/books/identify-cover"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageBase64: photo.base64,
-          mimeType: "image/jpeg",
-        }),
-      });
+      let resp: Response;
+      try {
+        resp = await fetch(apiUrl("/api/books/identify-cover"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageBase64: photo.base64,
+            mimeType: "image/jpeg",
+          }),
+        });
+      } catch {
+        setCoverError(
+          "Couldn't reach the server. Check your internet connection and try again.",
+        );
+        setPhase("cover-not-found");
+        return;
+      }
+      if (resp.status === 429) {
+        setCoverError(
+          "You're scanning too quickly. Wait a minute and try again.",
+        );
+        setPhase("cover-not-found");
+        return;
+      }
+      if (resp.status === 502) {
+        setCoverError(
+          "The recognition service is temporarily unavailable. Please try again shortly.",
+        );
+        setPhase("cover-not-found");
+        return;
+      }
       if (!resp.ok) {
+        setCoverError(
+          "Something went wrong identifying the cover. Please try again.",
+        );
         setPhase("cover-not-found");
         return;
       }
       const analysis: CoverAnalysis = await resp.json();
 
+      const hasValidIsbn =
+        !!analysis.possibleIsbn && isValidIsbn(analysis.possibleIsbn);
+
+      if (analysis.confidence < MIN_COVER_CONFIDENCE && !hasValidIsbn) {
+        setCoverError(
+          "That doesn't look like a book cover we can recognize. Try again with the front cover filling the frame in good lighting.",
+        );
+        setPhase("cover-not-found");
+        return;
+      }
+
       let results: BookInfo[] = [];
 
-      if (analysis.possibleIsbn) {
+      if (hasValidIsbn) {
         const book = await fetchBookByISBN(analysis.possibleIsbn);
         if (book) results = [book];
       }
 
       if (results.length === 0 && analysis.title) {
-        results = await searchBooksByTitleAuthor(
-          analysis.title,
-          analysis.authors[0],
-        );
+        results = await searchBooksByTitleAuthor({
+          title: analysis.title,
+          author: analysis.authors[0],
+          publisher: analysis.publisher,
+          editionText: analysis.editionText,
+        });
       }
 
       if (results.length > 0) {
@@ -148,9 +202,17 @@ export default function ScannerScreen() {
         setPhase("cover-results");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
+        setCoverError(
+          analysis.title
+            ? `We recognized "${analysis.title}" but couldn't find a matching edition. Try scanning the barcode or entering the ISBN manually.`
+            : "We couldn't match that cover photo to a book. Try again with better lighting, scan the barcode, or enter the ISBN manually.",
+        );
         setPhase("cover-not-found");
       }
     } catch {
+      setCoverError(
+        "Something went wrong identifying the cover. Please try again.",
+      );
       setPhase("cover-not-found");
     } finally {
       setCapturing(false);
@@ -181,6 +243,7 @@ export default function ScannerScreen() {
     setFoundBook(null);
     setManualISBN("");
     setCandidates([]);
+    setCoverError("");
     setPhase("scan");
   };
 
@@ -636,8 +699,8 @@ export default function ScannerScreen() {
           Couldn't Identify Cover
         </Text>
         <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
-          We couldn't match that cover photo to a book. Try again with better
-          lighting, scan the barcode, or enter the ISBN manually.
+          {coverError ||
+            "We couldn't match that cover photo to a book. Try again with better lighting, scan the barcode, or enter the ISBN manually."}
         </Text>
         <Pressable style={styles.primaryBtn} onPress={resetScan}>
           <Text style={styles.primaryBtnText}>Try Again</Text>

@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import express from "express";
 import {
   IdentifyBookCoverBody,
   IdentifyBookCoverResponse,
@@ -11,8 +10,11 @@ const booksRouter: IRouter = Router();
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
 
-// Base64 inflates ~33%; allow headroom for an 8 MB decoded image.
-const jsonParser = express.json({ limit: "12mb" });
+// Note: the JSON body parser for this route (12 MB limit) is configured
+// path-specifically in app.ts, before the global 100kb parser.
+
+// Matches standard base64 (with optional padding), length divisible by 4.
+const BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 // Simple in-memory per-IP rate limiter to protect the costly AI endpoint.
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -46,7 +48,7 @@ const SYSTEM_PROMPT = `You identify books from cover photos. Examine the image a
 
 Respond ONLY with a JSON object with exactly these keys.`;
 
-booksRouter.post("/books/identify-cover", jsonParser, async (req, res) => {
+booksRouter.post("/books/identify-cover", async (req, res) => {
   const ip = req.ip ?? "unknown";
   if (isRateLimited(ip)) {
     res.status(429).json({ message: "Too many requests, try again shortly" });
@@ -66,13 +68,12 @@ booksRouter.post("/books/identify-cover", jsonParser, async (req, res) => {
     return;
   }
 
-  let imageBytes: number;
-  try {
-    imageBytes = Buffer.from(imageBase64, "base64").byteLength;
-  } catch {
+  if (imageBase64.length % 4 !== 0 || !BASE64_RE.test(imageBase64)) {
     res.status(400).json({ message: "Invalid base64 image data" });
     return;
   }
+
+  const imageBytes = Buffer.from(imageBase64, "base64").byteLength;
   if (imageBytes === 0) {
     res.status(400).json({ message: "Empty image" });
     return;
