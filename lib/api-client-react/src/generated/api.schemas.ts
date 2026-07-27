@@ -33,6 +33,19 @@ export interface CoverAnalysis {
   confidence: number;
 }
 
+export interface BookDetails {
+  isbn: string;
+  title: string;
+  authors: string[];
+  description: string;
+  pageCount: number;
+  coverUrl: string;
+  publisher: string;
+  publishedDate: string;
+  categories: string[];
+  language: string;
+}
+
 export interface ErrorResponse {
   message: string;
 }

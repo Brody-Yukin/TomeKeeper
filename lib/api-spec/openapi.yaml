@@ -38,6 +38,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /books/isbn/{isbn}:
+    get:
+      operationId: getBookByIsbn
+      tags: [books]
+      summary: Look up a book by ISBN
+      description: Validates and normalizes an ISBN-10 or ISBN-13, then queries the Google Books catalog server-side.
+      parameters:
+        - name: isbn
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ISBN-10 or ISBN-13 (hyphens/spaces allowed)
+      responses:
+        "200":
+          description: Book found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookDetails"
+        "400":
+          description: Invalid ISBN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Catalog responded successfully but has no book for this ISBN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Catalog service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /healthz:
     get:
       operationId: healthCheck
@@ -91,6 +129,44 @@ components:
         - editionText
         - possibleIsbn
         - confidence
+    BookDetails:
+      type: object
+      properties:
+        isbn:
+          type: string
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        pageCount:
+          type: number
+        coverUrl:
+          type: string
+        publisher:
+          type: string
+        publishedDate:
+          type: string
+        categories:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+      required:
+        - isbn
+        - title
+        - authors
+        - description
+        - pageCount
+        - coverUrl
+        - publisher
+        - publishedDate
+        - categories
+        - language
     ErrorResponse:
       type: object
       properties:

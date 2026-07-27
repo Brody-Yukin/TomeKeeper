@@ -20,7 +20,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLibrary } from "@/context/LibraryContext";
 import { useColors } from "@/hooks/useColors";
 import {
+  apiUrl,
   BookInfo,
+  BookLookupError,
   fetchBookByISBN,
   searchBooksByTitleAuthor,
 } from "@/utils/googleBooks";
@@ -45,17 +47,6 @@ interface CoverAnalysis {
   confidence: number;
 }
 
-function apiUrl(path: string): string {
-  // Prefer an explicit API base URL; fall back to the injected deployment
-  // domain (the platform proxy routes /api/* to the API server in both
-  // development and production).
-  const base = process.env.EXPO_PUBLIC_API_URL;
-  if (base) return `${base.replace(/\/$/, "")}${path}`;
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}${path}`;
-  return path;
-}
-
 const MIN_COVER_CONFIDENCE = 0.55;
 
 function isValidIsbn(isbn: string): boolean {
@@ -75,6 +66,7 @@ export default function ScannerScreen() {
   const [manualISBN, setManualISBN] = useState("");
   const [candidates, setCandidates] = useState<BookInfo[]>([]);
   const [coverError, setCoverError] = useState("");
+  const [lookupError, setLookupError] = useState("");
   const [cameraReady, setCameraReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
@@ -105,9 +97,21 @@ export default function ScannerScreen() {
         setFoundBook(book);
         setPhase("found");
       } else {
+        setLookupError(`We couldn't find a book for ISBN: ${isbn}`);
         setPhase("not-found");
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof BookLookupError && err.kind === "network") {
+        setLookupError(
+          "Couldn't reach the server. Check your internet connection and try again.",
+        );
+      } else if (err instanceof BookLookupError && err.kind === "catalog") {
+        setLookupError(
+          "The book catalog service is having trouble right now. Please try again shortly.",
+        );
+      } else {
+        setLookupError("Something went wrong looking up this book. Please try again.");
+      }
       setPhase("not-found");
     }
   };
@@ -184,8 +188,12 @@ export default function ScannerScreen() {
       let results: BookInfo[] = [];
 
       if (hasValidIsbn) {
-        const book = await fetchBookByISBN(analysis.possibleIsbn);
-        if (book) results = [book];
+        try {
+          const book = await fetchBookByISBN(analysis.possibleIsbn);
+          if (book) results = [book];
+        } catch {
+          // Fall through to the title/author search below.
+        }
       }
 
       if (results.length === 0 && analysis.title) {
@@ -244,6 +252,7 @@ export default function ScannerScreen() {
     setManualISBN("");
     setCandidates([]);
     setCoverError("");
+    setLookupError("");
     setPhase("scan");
   };
 
@@ -759,10 +768,12 @@ export default function ScannerScreen() {
       <View style={[styles.sheet, { paddingTop: insets.top + 24, alignItems: "center" }]}>
         <Ionicons name="search-outline" size={56} color={colors.mutedForeground} />
         <Text style={[styles.sheetTitle, { textAlign: "center", marginTop: 16 }]}>
-          Book Not Found
+          {lookupError.startsWith("We couldn't find") || !lookupError
+            ? "Book Not Found"
+            : "Lookup Failed"}
         </Text>
         <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
-          We couldn't find a book for ISBN: {scannedISBN}
+          {lookupError || `We couldn't find a book for ISBN: ${scannedISBN}`}
         </Text>
         <Pressable style={styles.primaryBtn} onPress={resetScan}>
           <Text style={styles.primaryBtnText}>Try Again</Text>

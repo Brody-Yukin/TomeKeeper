@@ -34,6 +34,29 @@ export const IdentifyBookCoverResponse = zod.object({
 });
 
 /**
+ * Validates and normalizes an ISBN-10 or ISBN-13, then queries the Google Books catalog server-side.
+ * @summary Look up a book by ISBN
+ */
+export const GetBookByIsbnParams = zod.object({
+  isbn: zod.coerce
+    .string()
+    .describe("ISBN-10 or ISBN-13 (hyphens\/spaces allowed)"),
+});
+
+export const GetBookByIsbnResponse = zod.object({
+  isbn: zod.string(),
+  title: zod.string(),
+  authors: zod.array(zod.string()),
+  description: zod.string(),
+  pageCount: zod.number(),
+  coverUrl: zod.string(),
+  publisher: zod.string(),
+  publishedDate: zod.string(),
+  categories: zod.array(zod.string()),
+  language: zod.string(),
+});
+
+/**
  * Returns server health status
  * @summary Health check
  */

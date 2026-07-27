@@ -1,3 +1,23 @@
+/** Builds an absolute URL to the app's API server. */
+export function apiUrl(path: string): string {
+  const base = process.env.EXPO_PUBLIC_API_URL;
+  if (base) return `${base.replace(/\/$/, "")}${path}`;
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (domain) return `https://${domain}${path}`;
+  return path;
+}
+
+/** Thrown by fetchBookByISBN when the lookup fails for reasons other than "not found". */
+export class BookLookupError extends Error {
+  constructor(
+    public kind: "network" | "catalog",
+    message: string,
+  ) {
+    super(message);
+    this.name = "BookLookupError";
+  }
+}
+
 export interface BookInfo {
   isbn: string;
   title: string;
@@ -144,44 +164,29 @@ export async function searchBooksByTitleAuthor(
     .map(({ book }) => book);
 }
 
+/**
+ * Look up a book by ISBN through the app's API server (which queries the
+ * catalog with a server-only key).
+ *
+ * Returns null when the catalog has no book for this ISBN (or the ISBN is
+ * invalid). Throws BookLookupError("network") when the API server can't be
+ * reached, and BookLookupError("catalog") when the catalog service fails.
+ */
 export async function fetchBookByISBN(isbn: string): Promise<BookInfo | null> {
   const clean = isbn.replace(/[^0-9X]/gi, "");
-  const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${clean}`;
 
-  const resp = await fetch(url);
-  if (!resp.ok) return null;
+  let resp: Response;
+  try {
+    resp = await fetch(apiUrl(`/api/books/isbn/${encodeURIComponent(clean)}`));
+  } catch {
+    throw new BookLookupError("network", "Could not reach the server");
+  }
 
-  const data = await resp.json();
-  if (!data.items || data.items.length === 0) return null;
+  if (resp.status === 404 || resp.status === 400) return null;
+  if (!resp.ok) {
+    throw new BookLookupError("catalog", `Book catalog error (${resp.status})`);
+  }
 
-  const volume = data.items[0];
-  const info = volume.volumeInfo || {};
-
-  const identifiers: { type: string; identifier: string }[] =
-    info.industryIdentifiers || [];
-  const isbn13 = identifiers.find((i) => i.type === "ISBN_13")?.identifier || "";
-  const isbn10 = identifiers.find((i) => i.type === "ISBN_10")?.identifier || "";
-
-  const thumbnail =
-    info.imageLinks?.extraLarge ||
-    info.imageLinks?.large ||
-    info.imageLinks?.medium ||
-    info.imageLinks?.thumbnail ||
-    info.imageLinks?.smallThumbnail ||
-    "";
-
-  const httpsThumb = thumbnail.replace("http://", "https://");
-
-  return {
-    isbn: isbn13 || isbn10 || clean,
-    title: info.title || "Unknown Title",
-    authors: info.authors || [],
-    description: info.description || "",
-    pageCount: info.pageCount || 0,
-    coverUrl: httpsThumb,
-    publisher: info.publisher || "",
-    publishedDate: info.publishedDate || "",
-    categories: info.categories || [],
-    language: info.language || "en",
-  };
+  const book = (await resp.json()) as BookInfo;
+  return book;
 }

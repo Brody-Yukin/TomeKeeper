@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  BookDetails,
   CoverAnalysis,
   ErrorResponse,
   HealthStatus,
@@ -118,6 +119,94 @@ export const useIdentifyBookCover = <
 > => {
   return useMutation(getIdentifyBookCoverMutationOptions(options));
 };
+
+/**
+ * Validates and normalizes an ISBN-10 or ISBN-13, then queries the Google Books catalog server-side.
+ * @summary Look up a book by ISBN
+ */
+export const getGetBookByIsbnUrl = (isbn: string) => {
+  return `/api/books/isbn/${isbn}`;
+};
+
+export const getBookByIsbn = async (
+  isbn: string,
+  options?: RequestInit,
+): Promise<BookDetails> => {
+  return customFetch<BookDetails>(getGetBookByIsbnUrl(isbn), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBookByIsbnQueryKey = (isbn: string) => {
+  return [`/api/books/isbn/${isbn}`] as const;
+};
+
+export const getGetBookByIsbnQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBookByIsbn>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  isbn: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBookByIsbn>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBookByIsbnQueryKey(isbn);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getBookByIsbn>>> = ({
+    signal,
+  }) => getBookByIsbn(isbn, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!isbn,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBookByIsbn>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBookByIsbnQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBookByIsbn>>
+>;
+export type GetBookByIsbnQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Look up a book by ISBN
+ */
+
+export function useGetBookByIsbn<
+  TData = Awaited<ReturnType<typeof getBookByIsbn>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  isbn: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBookByIsbn>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBookByIsbnQueryOptions(isbn, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns server health status
