@@ -35,15 +35,15 @@ export default function SettingsScreen() {
       backgroundColor: colors.background,
     },
     header: {
-      paddingHorizontal: 20,
-      paddingTop: Platform.OS === "web" ? 83 : 16,
-      paddingBottom: 16,
+      paddingHorizontal: 16,
+      paddingTop: Platform.OS === "web" ? 83 : insets.top + 8,
+      paddingBottom: 12,
       backgroundColor: colors.background,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
     headerTitle: {
-      fontSize: 26,
+      fontSize: 22,
       fontFamily: "Inter_700Bold",
       color: colors.foreground,
     },
@@ -51,7 +51,8 @@ export default function SettingsScreen() {
       flex: 1,
     },
     content: {
-      padding: 20,
+      paddingHorizontal: 16,
+      paddingTop: 16,
       paddingBottom: Platform.OS === "web" ? insets.bottom + 34 : insets.bottom + 20,
     },
     sectionTitle: {
@@ -61,7 +62,7 @@ export default function SettingsScreen() {
       textTransform: "uppercase",
       letterSpacing: 0.8,
       marginBottom: 10,
-      marginTop: 24,
+      marginTop: 18,
     },
     statsGrid: {
       flexDirection: "row",
@@ -73,18 +74,18 @@ export default function SettingsScreen() {
       minWidth: "45%",
       backgroundColor: colors.card,
       borderRadius: colors.radius,
-      padding: 16,
+      padding: 12,
       borderWidth: 1,
       borderColor: colors.border,
     },
     statValue: {
-      fontSize: 32,
+      fontSize: 26,
       fontFamily: "Inter_700Bold",
       color: colors.foreground,
-      lineHeight: 38,
+      lineHeight: 31,
     },
     statLabel: {
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: "Inter_400Regular",
       color: colors.mutedForeground,
       marginTop: 2,
@@ -102,7 +103,7 @@ export default function SettingsScreen() {
     row: {
       flexDirection: "row",
       alignItems: "center",
-      padding: 16,
+      padding: 13,
       gap: 14,
     },
     rowDivider: {
@@ -124,7 +125,7 @@ export default function SettingsScreen() {
     destructiveRow: {
       flexDirection: "row",
       alignItems: "center",
-      padding: 16,
+      padding: 13,
       gap: 14,
     },
     destructiveLabel: {

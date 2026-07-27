@@ -323,18 +323,28 @@ export default function ScannerScreen() {
     },
     scanHint: {
       marginTop: 20,
+      marginHorizontal: 32,
       color: "#fff",
-      fontSize: 14,
+      fontSize: 13,
       fontFamily: "Inter_400Regular",
       textAlign: "center",
-      opacity: 0.8,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 10,
+      overflow: "hidden",
     },
     darkBottom: {
       position: "absolute",
       bottom: 0,
       left: 0,
       right: 0,
-      paddingBottom: Platform.OS === "web" ? insets.bottom + 34 : insets.bottom + 16,
+      paddingBottom:
+        Platform.OS === "web"
+          ? insets.bottom + 34
+          : Platform.OS === "ios"
+            ? insets.bottom + 82
+            : insets.bottom + 16,
       paddingTop: 20,
       paddingHorizontal: 24,
       backgroundColor: "rgba(0,0,0,0.7)",
@@ -345,7 +355,7 @@ export default function ScannerScreen() {
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
-      paddingVertical: 14,
+      paddingVertical: 12,
       borderRadius: colors.radius,
       backgroundColor: colors.accent,
       opacity: capturing || !cameraReady ? 0.6 : 1,
@@ -360,7 +370,7 @@ export default function ScannerScreen() {
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
-      paddingVertical: 14,
+      paddingVertical: 12,
       borderRadius: colors.radius,
       borderWidth: 1.5,
       borderColor: "rgba(255,255,255,0.3)",
@@ -828,7 +838,7 @@ export default function ScannerScreen() {
           <View style={styles.cornerBR} />
         </View>
         <Text style={styles.scanHint}>
-          Point camera at the barcode, or snap a photo of the front cover
+          Aim at the barcode, or photograph the front cover
         </Text>
       </View>
       <View style={styles.headerTopBar}>
