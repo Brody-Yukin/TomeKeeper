@@ -5,6 +5,38 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type IdentifyCoverRequestMimeType =
+  (typeof IdentifyCoverRequestMimeType)[keyof typeof IdentifyCoverRequestMimeType];
+
+export const IdentifyCoverRequestMimeType = {
+  "image/jpeg": "image/jpeg",
+  "image/png": "image/png",
+  "image/webp": "image/webp",
+} as const;
+
+export interface IdentifyCoverRequest {
+  /** Base64-encoded image bytes (no data URL prefix) */
+  imageBase64: string;
+  mimeType: IdentifyCoverRequestMimeType;
+}
+
+export interface CoverAnalysis {
+  title: string;
+  authors: string[];
+  publisher: string;
+  editionText: string;
+  possibleIsbn: string;
+  /**
+   * @minimum 0
+   * @maximum 1
+   */
+  confidence: number;
+}
+
+export interface ErrorResponse {
+  message: string;
+}
+
 export interface HealthStatus {
   status: string;
 }

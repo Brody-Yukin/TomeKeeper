@@ -32,7 +32,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "BookShelf needs camera access to scan book barcodes."
+          "cameraPermission": "BookShelf needs camera access to scan book barcodes and photograph book covers."
         }
       ]
     ],

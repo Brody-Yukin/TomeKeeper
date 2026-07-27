@@ -26,6 +26,9 @@ app.use(
   }),
 );
 app.use(cors());
+// Cover photos are sent as base64 JSON; parse them with a higher limit
+// before the default 100kb JSON parser claims the body.
+app.use("/api/books/identify-cover", express.json({ limit: "12mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

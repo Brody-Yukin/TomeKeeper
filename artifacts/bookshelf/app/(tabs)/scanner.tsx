@@ -1,10 +1,12 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Linking,
   Platform,
   Pressable,
@@ -17,9 +19,37 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLibrary } from "@/context/LibraryContext";
 import { useColors } from "@/hooks/useColors";
-import { fetchBookByISBN } from "@/utils/googleBooks";
+import {
+  BookInfo,
+  fetchBookByISBN,
+  searchBooksByTitleAuthor,
+} from "@/utils/googleBooks";
 
-type Phase = "scan" | "loading" | "found" | "not-found" | "already-added" | "manual";
+type Phase =
+  | "scan"
+  | "loading"
+  | "found"
+  | "not-found"
+  | "already-added"
+  | "manual"
+  | "cover-loading"
+  | "cover-results"
+  | "cover-not-found";
+
+interface CoverAnalysis {
+  title: string;
+  authors: string[];
+  publisher: string;
+  editionText: string;
+  possibleIsbn: string;
+  confidence: number;
+}
+
+function apiUrl(path: string): string {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (domain) return `https://${domain}${path}`;
+  return path;
+}
 
 export default function ScannerScreen() {
   const colors = useColors();
@@ -29,13 +59,17 @@ export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>("scan");
   const [scannedISBN, setScannedISBN] = useState("");
-  const [foundBook, setFoundBook] = useState<any>(null);
+  const [foundBook, setFoundBook] = useState<BookInfo | null>(null);
   const [manualISBN, setManualISBN] = useState("");
+  const [candidates, setCandidates] = useState<BookInfo[]>([]);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const cameraRef = useRef<CameraView>(null);
   const lastScanned = useRef<string>("");
   const scanCooldown = useRef(false);
 
   const handleBarcode = async ({ data }: { data: string }) => {
-    if (scanCooldown.current || data === lastScanned.current) return;
+    if (capturing || scanCooldown.current || data === lastScanned.current) return;
     lastScanned.current = data;
     scanCooldown.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -65,17 +99,88 @@ export default function ScannerScreen() {
     }
   };
 
+  const handleScanCover = async () => {
+    if (!cameraRef.current || !cameraReady || capturing) return;
+    setCapturing(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.5,
+        base64: true,
+        skipProcessing: true,
+      });
+      if (!photo?.base64) {
+        setPhase("cover-not-found");
+        return;
+      }
+      setPhase("cover-loading");
+
+      const resp = await fetch(apiUrl("/api/books/identify-cover"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: photo.base64,
+          mimeType: "image/jpeg",
+        }),
+      });
+      if (!resp.ok) {
+        setPhase("cover-not-found");
+        return;
+      }
+      const analysis: CoverAnalysis = await resp.json();
+
+      let results: BookInfo[] = [];
+
+      if (analysis.possibleIsbn) {
+        const book = await fetchBookByISBN(analysis.possibleIsbn);
+        if (book) results = [book];
+      }
+
+      if (results.length === 0 && analysis.title) {
+        results = await searchBooksByTitleAuthor(
+          analysis.title,
+          analysis.authors[0],
+        );
+      }
+
+      if (results.length > 0) {
+        setCandidates(results);
+        setPhase("cover-results");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        setPhase("cover-not-found");
+      }
+    } catch {
+      setPhase("cover-not-found");
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const handleSelectCandidate = (book: BookInfo) => {
+    if (hasBook(book.isbn)) {
+      setScannedISBN(book.isbn);
+      setPhase("already-added");
+      return;
+    }
+    addBook(book);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.push("/(tabs)");
+    resetScan();
+  };
+
   const handleAdd = () => {
     if (!foundBook) return;
     addBook(foundBook);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.push("/(tabs)/");
+    router.push("/(tabs)");
   };
 
   const resetScan = () => {
     lastScanned.current = "";
     setFoundBook(null);
     setManualISBN("");
+    setCandidates([]);
     setPhase("scan");
   };
 
@@ -161,6 +266,22 @@ export default function ScannerScreen() {
       paddingTop: 20,
       paddingHorizontal: 24,
       backgroundColor: "rgba(0,0,0,0.7)",
+      gap: 12,
+    },
+    coverBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: colors.radius,
+      backgroundColor: colors.accent,
+      opacity: capturing || !cameraReady ? 0.6 : 1,
+    },
+    coverBtnText: {
+      color: "#0d0d0d",
+      fontSize: 15,
+      fontFamily: "Inter_600SemiBold",
     },
     manualBtn: {
       flexDirection: "row",
@@ -183,6 +304,11 @@ export default function ScannerScreen() {
       justifyContent: "center",
       padding: 24,
     },
+    resultsSheet: {
+      flex: 1,
+      backgroundColor: colors.card,
+      paddingHorizontal: 20,
+    },
     sheetTitle: {
       fontSize: 22,
       fontFamily: "Inter_700Bold",
@@ -195,12 +321,6 @@ export default function ScannerScreen() {
       fontFamily: "Inter_400Regular",
       marginBottom: 24,
     },
-    bookTitle: {
-      fontSize: 20,
-      fontFamily: "Inter_700Bold",
-      color: colors.foreground,
-      marginBottom: 4,
-    },
     bookAuthor: {
       fontSize: 15,
       color: colors.mutedForeground,
@@ -212,6 +332,43 @@ export default function ScannerScreen() {
       color: colors.mutedForeground,
       fontFamily: "Inter_400Regular",
       marginBottom: 24,
+    },
+    candidateCard: {
+      flexDirection: "row",
+      gap: 14,
+      padding: 14,
+      borderRadius: colors.radius,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      marginBottom: 12,
+    },
+    candidateCover: {
+      width: 56,
+      height: 84,
+      borderRadius: 6,
+      backgroundColor: colors.border,
+    },
+    candidateInfo: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    candidateTitle: {
+      fontSize: 15,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.foreground,
+      marginBottom: 2,
+    },
+    candidateAuthor: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      marginBottom: 4,
+    },
+    candidateMeta: {
+      fontSize: 12,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
     },
     primaryBtn: {
       backgroundColor: colors.primary,
@@ -305,8 +462,8 @@ export default function ScannerScreen() {
         <Ionicons name="camera-outline" size={60} color={colors.mutedForeground} />
         <Text style={styles.permTitle}>Camera Access Needed</Text>
         <Text style={styles.permText}>
-          Allow camera access to scan book barcodes. You can also enter an ISBN
-          manually below.
+          Allow camera access to scan book barcodes or snap a photo of the
+          cover. You can also enter an ISBN manually below.
         </Text>
         {permission.status === "denied" && !permission.canAskAgain && Platform.OS !== "web" ? (
           <Pressable
@@ -386,6 +543,113 @@ export default function ScannerScreen() {
     );
   }
 
+  if (phase === "cover-loading") {
+    return (
+      <View style={[styles.sheet, { alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.sheetTitle, { marginTop: 20, textAlign: "center" }]}>
+          Identifying cover...
+        </Text>
+        <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
+          Analyzing the photo and searching for matching editions
+        </Text>
+      </View>
+    );
+  }
+
+  if (phase === "cover-results") {
+    return (
+      <View style={[styles.resultsSheet, { paddingTop: insets.top + 24 }]}>
+        <Pressable style={{ marginBottom: 16 }} onPress={resetScan}>
+          <Feather name="arrow-left" size={24} color={colors.foreground} />
+        </Pressable>
+        <Text style={styles.sheetTitle}>Select Your Edition</Text>
+        <Text style={styles.sheetSubtitle}>
+          We found {candidates.length} possible{" "}
+          {candidates.length === 1 ? "match" : "matches"}. Pick the one that
+          matches your book.
+        </Text>
+        <FlatList
+          data={candidates}
+          keyExtractor={(item) => item.isbn}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.candidateCard}
+              onPress={() => handleSelectCandidate(item)}
+            >
+              {item.coverUrl ? (
+                <Image
+                  source={{ uri: item.coverUrl }}
+                  style={styles.candidateCover}
+                  contentFit="cover"
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.candidateCover,
+                    { alignItems: "center", justifyContent: "center" },
+                  ]}
+                >
+                  <Ionicons
+                    name="book-outline"
+                    size={22}
+                    color={colors.mutedForeground}
+                  />
+                </View>
+              )}
+              <View style={styles.candidateInfo}>
+                <Text style={styles.candidateTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                <Text style={styles.candidateAuthor} numberOfLines={1}>
+                  {item.authors.join(", ") || "Unknown Author"}
+                </Text>
+                <Text style={styles.candidateMeta} numberOfLines={2}>
+                  {[
+                    item.publisher,
+                    item.publishedDate,
+                    item.isbn ? `ISBN ${item.isbn}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Text>
+              </View>
+              <Feather
+                name="plus-circle"
+                size={22}
+                color={colors.accent}
+                style={{ alignSelf: "center" }}
+              />
+            </Pressable>
+          )}
+        />
+      </View>
+    );
+  }
+
+  if (phase === "cover-not-found") {
+    return (
+      <View style={[styles.sheet, { paddingTop: insets.top + 24, alignItems: "center" }]}>
+        <Ionicons name="image-outline" size={56} color={colors.mutedForeground} />
+        <Text style={[styles.sheetTitle, { textAlign: "center", marginTop: 16 }]}>
+          Couldn't Identify Cover
+        </Text>
+        <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
+          We couldn't match that cover photo to a book. Try again with better
+          lighting, scan the barcode, or enter the ISBN manually.
+        </Text>
+        <Pressable style={styles.primaryBtn} onPress={resetScan}>
+          <Text style={styles.primaryBtnText}>Try Again</Text>
+        </Pressable>
+        <View style={{ height: 12 }} />
+        <Pressable style={styles.secondaryBtn} onPress={() => setPhase("manual")}>
+          <Text style={styles.secondaryBtnText}>Enter ISBN Manually</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (phase === "found" && foundBook) {
     return (
       <View style={[styles.sheet, { paddingTop: insets.top + 24 }]}>
@@ -458,7 +722,7 @@ export default function ScannerScreen() {
         <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
           This book is already in your collection.
         </Text>
-        <Pressable style={styles.primaryBtn} onPress={() => router.push("/(tabs)/")}>
+        <Pressable style={styles.primaryBtn} onPress={() => router.push("/(tabs)")}>
           <Text style={styles.primaryBtnText}>Go to Library</Text>
         </Pressable>
         <View style={{ height: 12 }} />
@@ -472,10 +736,14 @@ export default function ScannerScreen() {
   return (
     <View style={styles.container}>
       <CameraView
+        ref={cameraRef}
         style={styles.camera}
         facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128"] }}
-        onBarcodeScanned={handleBarcode}
+        onCameraReady={() => setCameraReady(true)}
+        barcodeScannerSettings={{
+          barcodeTypes: ["ean13", "ean8"],
+        }}
+        onBarcodeScanned={phase === "scan" && !capturing ? handleBarcode : undefined}
       />
       <View style={styles.overlay} pointerEvents="none">
         <View style={{ position: "relative" }}>
@@ -485,12 +753,26 @@ export default function ScannerScreen() {
           <View style={styles.cornerBL} />
           <View style={styles.cornerBR} />
         </View>
-        <Text style={styles.scanHint}>Point camera at barcode on book's back cover</Text>
+        <Text style={styles.scanHint}>
+          Point camera at the barcode, or snap a photo of the front cover
+        </Text>
       </View>
       <View style={styles.headerTopBar}>
         <Text style={styles.topBarTitle}>Scan Book</Text>
       </View>
       <View style={styles.darkBottom}>
+        <Pressable
+          style={styles.coverBtn}
+          onPress={handleScanCover}
+          disabled={capturing || !cameraReady}
+        >
+          {capturing ? (
+            <ActivityIndicator size="small" color="#0d0d0d" />
+          ) : (
+            <Ionicons name="camera" size={18} color="#0d0d0d" />
+          )}
+          <Text style={styles.coverBtnText}>Scan Cover Instead</Text>
+        </Pressable>
         <Pressable
           style={styles.manualBtn}
           onPress={() => setPhase("manual")}

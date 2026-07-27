@@ -8,6 +8,32 @@
 import * as zod from "zod";
 
 /**
+ * Accepts a base64-encoded cover photo and returns structured cover analysis extracted with server-side image recognition.
+ * @summary Identify a book from a cover photo
+ */
+export const IdentifyBookCoverBody = zod.object({
+  imageBase64: zod
+    .string()
+    .describe("Base64-encoded image bytes (no data URL prefix)"),
+  mimeType: zod.enum(["image/jpeg", "image/png", "image/webp"]),
+});
+
+export const identifyBookCoverResponseConfidenceMin = 0;
+export const identifyBookCoverResponseConfidenceMax = 1;
+
+export const IdentifyBookCoverResponse = zod.object({
+  title: zod.string(),
+  authors: zod.array(zod.string()),
+  publisher: zod.string(),
+  editionText: zod.string(),
+  possibleIsbn: zod.string(),
+  confidence: zod
+    .number()
+    .min(identifyBookCoverResponseConfidenceMin)
+    .max(identifyBookCoverResponseConfidenceMax),
+});
+
+/**
  * Returns server health status
  * @summary Health check
  */
