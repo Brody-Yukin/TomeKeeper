@@ -1,8 +1,8 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   Platform,
@@ -28,19 +28,12 @@ export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const router = useRouter();
-  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { books, updateStatus, updateCurrentPage, updateRating, removeBook } =
     useLibrary();
   const [pageSheetVisible, setPageSheetVisible] = useState(false);
 
   const book = books.find((b) => b.id === id);
-
-  useEffect(() => {
-    if (book) {
-      navigation.setOptions({ title: book.title });
-    }
-  }, [book, navigation]);
 
   if (!book) {
     return (
@@ -91,9 +84,31 @@ export default function BookDetailScreen() {
       flex: 1,
       backgroundColor: colors.background,
     },
+    navHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingTop: Platform.OS === "web" ? 12 : insets.top + 8,
+      paddingBottom: 8,
+      paddingHorizontal: 8,
+      backgroundColor: colors.card,
+      gap: 4,
+    },
+    backBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 8,
+    },
+    navTitle: {
+      flex: 1,
+      fontSize: 16,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.foreground,
+      marginRight: 40,
+      textAlign: "center",
+    },
     heroSection: {
       alignItems: "center",
-      paddingTop: 24,
+      paddingTop: 16,
       paddingBottom: 24,
       paddingHorizontal: 20,
       backgroundColor: colors.card,
@@ -290,6 +305,14 @@ export default function BookDetailScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.navHeader}>
+        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+          <Ionicons name="chevron-back" size={26} color={colors.accent} />
+        </Pressable>
+        <Text style={styles.navTitle} numberOfLines={1}>
+          {book.title}
+        </Text>
+      </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.heroSection}>
           {book.coverUrl ? (

@@ -24,14 +24,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="book/[id]"
-        options={{
-          title: "",
-          headerStyle: { backgroundColor: "transparent" },
-          headerTransparent: false,
-        }}
-      />
+      <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }
