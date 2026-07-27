@@ -32,6 +32,39 @@ const colors = {
     unreadColor: "#95a5a6",
   },
 
+  dark: {
+    text: "#ece9e2",
+    tint: "#f0b429",
+
+    background: "#15141a",
+    foreground: "#ece9e2",
+
+    card: "#1f1e26",
+    cardForeground: "#ece9e2",
+
+    primary: "#ece9e2",
+    primaryForeground: "#15141a",
+
+    secondary: "#2a2932",
+    secondaryForeground: "#ece9e2",
+
+    muted: "#2a2932",
+    mutedForeground: "#9a948b",
+
+    accent: "#f0b429",
+    accentForeground: "#15141a",
+
+    destructive: "#e05545",
+    destructiveForeground: "#ffffff",
+
+    border: "#33323c",
+    input: "#33323c",
+
+    readColor: "#2ecc71",
+    readingColor: "#f0b429",
+    unreadColor: "#8a949a",
+  },
+
   radius: 12,
 };
 
