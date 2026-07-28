@@ -46,6 +46,57 @@ export interface BookDetails {
   language: string;
 }
 
+export type LibraryBookStatus =
+  (typeof LibraryBookStatus)[keyof typeof LibraryBookStatus];
+
+export const LibraryBookStatus = {
+  unread: "unread",
+  reading: "reading",
+  read: "read",
+} as const;
+
+export interface LibraryBook {
+  id: string;
+  isbn: string;
+  title: string;
+  authors: string[];
+  description: string;
+  pageCount: number;
+  currentPage: number;
+  coverUrl: string;
+  publisher: string;
+  publishedDate: string;
+  categories: string[];
+  language: string;
+  status: LibraryBookStatus;
+  /** Epoch milliseconds */
+  dateAdded: number;
+  /** Epoch milliseconds */
+  dateFinished?: number;
+  rating?: number;
+}
+
+export interface ImportLibraryRequest {
+  books: LibraryBook[];
+}
+
+export type LibraryBookUpdateStatus =
+  (typeof LibraryBookUpdateStatus)[keyof typeof LibraryBookUpdateStatus];
+
+export const LibraryBookUpdateStatus = {
+  unread: "unread",
+  reading: "reading",
+  read: "read",
+} as const;
+
+export interface LibraryBookUpdate {
+  status?: LibraryBookUpdateStatus;
+  currentPage?: number;
+  rating?: number;
+  /** Epoch milliseconds */
+  dateFinished?: number;
+}
+
 export interface ErrorResponse {
   message: string;
 }

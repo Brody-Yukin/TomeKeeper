@@ -12,3 +12,8 @@ export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./identifyCoverRequest";
 export * from "./identifyCoverRequestMimeType";
+export * from "./importLibraryRequest";
+export * from "./libraryBook";
+export * from "./libraryBookStatus";
+export * from "./libraryBookUpdate";
+export * from "./libraryBookUpdateStatus";

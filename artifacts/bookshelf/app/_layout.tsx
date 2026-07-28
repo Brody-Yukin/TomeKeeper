@@ -19,6 +19,12 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LibraryProvider } from "@/context/LibraryContext";
 
 SplashScreen.preventAutoHideAsync();
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+import { apiUrl } from "@/utils/googleBooks";
+
+// Point the generated API client at the API server (no-op when the app is
+// served from the same origin as the API).
+setBaseUrl(apiUrl("") || null);
 
 const queryClient = new QueryClient();
 
@@ -26,7 +32,14 @@ const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 function RootLayoutNav() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
+
+  // Attach the Clerk bearer token to every API call made through the
+  // generated client (library sync endpoints require authentication).
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+    return () => setAuthTokenGetter(null);
+  }, [getToken]);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>

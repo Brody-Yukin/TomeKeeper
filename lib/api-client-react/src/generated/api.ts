@@ -22,6 +22,9 @@ import type {
   ErrorResponse,
   HealthStatus,
   IdentifyCoverRequest,
+  ImportLibraryRequest,
+  LibraryBook,
+  LibraryBookUpdate,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -32,6 +35,425 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * @summary List the signed-in user's library
+ */
+export const getListLibraryBooksUrl = () => {
+  return `/api/library`;
+};
+
+export const listLibraryBooks = async (
+  options?: RequestInit,
+): Promise<LibraryBook[]> => {
+  return customFetch<LibraryBook[]>(getListLibraryBooksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLibraryBooksQueryKey = () => {
+  return [`/api/library`] as const;
+};
+
+export const getListLibraryBooksQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLibraryBooks>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLibraryBooks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLibraryBooksQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLibraryBooks>>
+  > = ({ signal }) => listLibraryBooks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLibraryBooks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLibraryBooksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLibraryBooks>>
+>;
+export type ListLibraryBooksQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List the signed-in user's library
+ */
+
+export function useListLibraryBooks<
+  TData = Awaited<ReturnType<typeof listLibraryBooks>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLibraryBooks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLibraryBooksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add (or upsert) a book to the signed-in user's library
+ */
+export const getAddLibraryBookUrl = () => {
+  return `/api/library`;
+};
+
+export const addLibraryBook = async (
+  libraryBook: LibraryBook,
+  options?: RequestInit,
+): Promise<LibraryBook> => {
+  return customFetch<LibraryBook>(getAddLibraryBookUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(libraryBook),
+  });
+};
+
+export const getAddLibraryBookMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addLibraryBook>>,
+    TError,
+    { data: BodyType<LibraryBook> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addLibraryBook>>,
+  TError,
+  { data: BodyType<LibraryBook> },
+  TContext
+> => {
+  const mutationKey = ["addLibraryBook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addLibraryBook>>,
+    { data: BodyType<LibraryBook> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return addLibraryBook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddLibraryBookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addLibraryBook>>
+>;
+export type AddLibraryBookMutationBody = BodyType<LibraryBook>;
+export type AddLibraryBookMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add (or upsert) a book to the signed-in user's library
+ */
+export const useAddLibraryBook = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addLibraryBook>>,
+    TError,
+    { data: BodyType<LibraryBook> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addLibraryBook>>,
+  TError,
+  { data: BodyType<LibraryBook> },
+  TContext
+> => {
+  return useMutation(getAddLibraryBookMutationOptions(options));
+};
+
+/**
+ * Upserts each book, used to migrate an on-device library to the account on first sync. Returns the full library after import.
+ * @summary Bulk-import books into the signed-in user's library
+ */
+export const getImportLibraryBooksUrl = () => {
+  return `/api/library/import`;
+};
+
+export const importLibraryBooks = async (
+  importLibraryRequest: ImportLibraryRequest,
+  options?: RequestInit,
+): Promise<LibraryBook[]> => {
+  return customFetch<LibraryBook[]>(getImportLibraryBooksUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(importLibraryRequest),
+  });
+};
+
+export const getImportLibraryBooksMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importLibraryBooks>>,
+    TError,
+    { data: BodyType<ImportLibraryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importLibraryBooks>>,
+  TError,
+  { data: BodyType<ImportLibraryRequest> },
+  TContext
+> => {
+  const mutationKey = ["importLibraryBooks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importLibraryBooks>>,
+    { data: BodyType<ImportLibraryRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importLibraryBooks(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportLibraryBooksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importLibraryBooks>>
+>;
+export type ImportLibraryBooksMutationBody = BodyType<ImportLibraryRequest>;
+export type ImportLibraryBooksMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Bulk-import books into the signed-in user's library
+ */
+export const useImportLibraryBooks = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importLibraryBooks>>,
+    TError,
+    { data: BodyType<ImportLibraryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importLibraryBooks>>,
+  TError,
+  { data: BodyType<ImportLibraryRequest> },
+  TContext
+> => {
+  return useMutation(getImportLibraryBooksMutationOptions(options));
+};
+
+/**
+ * @summary Update fields on a book in the signed-in user's library
+ */
+export const getUpdateLibraryBookUrl = (id: string) => {
+  return `/api/library/${id}`;
+};
+
+export const updateLibraryBook = async (
+  id: string,
+  libraryBookUpdate: LibraryBookUpdate,
+  options?: RequestInit,
+): Promise<LibraryBook> => {
+  return customFetch<LibraryBook>(getUpdateLibraryBookUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(libraryBookUpdate),
+  });
+};
+
+export const getUpdateLibraryBookMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLibraryBook>>,
+    TError,
+    { id: string; data: BodyType<LibraryBookUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLibraryBook>>,
+  TError,
+  { id: string; data: BodyType<LibraryBookUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateLibraryBook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLibraryBook>>,
+    { id: string; data: BodyType<LibraryBookUpdate> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateLibraryBook(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLibraryBookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLibraryBook>>
+>;
+export type UpdateLibraryBookMutationBody = BodyType<LibraryBookUpdate>;
+export type UpdateLibraryBookMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update fields on a book in the signed-in user's library
+ */
+export const useUpdateLibraryBook = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLibraryBook>>,
+    TError,
+    { id: string; data: BodyType<LibraryBookUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLibraryBook>>,
+  TError,
+  { id: string; data: BodyType<LibraryBookUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateLibraryBookMutationOptions(options));
+};
+
+/**
+ * @summary Remove a book from the signed-in user's library
+ */
+export const getRemoveLibraryBookUrl = (id: string) => {
+  return `/api/library/${id}`;
+};
+
+export const removeLibraryBook = async (
+  id: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRemoveLibraryBookUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveLibraryBookMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeLibraryBook>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeLibraryBook>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["removeLibraryBook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeLibraryBook>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return removeLibraryBook(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveLibraryBookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeLibraryBook>>
+>;
+
+export type RemoveLibraryBookMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove a book from the signed-in user's library
+ */
+export const useRemoveLibraryBook = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeLibraryBook>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeLibraryBook>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getRemoveLibraryBookMutationOptions(options));
+};
 
 /**
  * Accepts a base64-encoded cover photo and returns structured cover analysis extracted with server-side image recognition.
