@@ -1,5 +1,4 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useClerk, useUser } from "@clerk/expo";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
@@ -20,8 +19,6 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { books, removeBook } = useLibrary();
-  const { user } = useUser();
-  const { signOut } = useClerk();
 
   const totalBooks = books.length;
   const readBooks = books.filter((b) => b.status === "read").length;
@@ -196,24 +193,6 @@ export default function SettingsScreen() {
               {totalPages.toLocaleString()}
             </Text>
             <Text style={styles.statLabel}>Total Pages Read</Text>
-          </View>
-
-          <Text style={styles.sectionTitle}>Account</Text>
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <Ionicons name="person-circle-outline" size={22} color={colors.mutedForeground} />
-              <Text style={styles.rowLabel} numberOfLines={1}>
-                {user?.primaryEmailAddress?.emailAddress ??
-                  user?.fullName ??
-                  "Signed in"}
-              </Text>
-            </View>
-            <View style={styles.rowDivider} />
-            <Pressable style={styles.row} onPress={() => signOut()}>
-              <Feather name="log-out" size={20} color={colors.mutedForeground} />
-              <Text style={styles.rowLabel}>Sign Out</Text>
-              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-            </Pressable>
           </View>
 
           <Text style={styles.sectionTitle}>About</Text>

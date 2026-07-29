@@ -2,8 +2,8 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -244,25 +244,7 @@ export default function ScannerScreen() {
     addBook(foundBook);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.push("/(tabs)");
-    resetScan();
   };
-
-  // Reset to a fresh scan view whenever the user leaves this tab,
-  // so returning never shows a stale "add to library" screen.
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        lastScanned.current = "";
-        setFoundBook(null);
-        setManualISBN("");
-        setCandidates([]);
-        setCoverError("");
-        setLookupError("");
-        setCapturing(false);
-        setPhase("scan");
-      };
-    }, [])
-  );
 
   const resetScan = () => {
     lastScanned.current = "";
