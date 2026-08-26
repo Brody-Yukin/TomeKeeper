@@ -1,0 +1,252 @@
+Perform a functional-stability pass on the current BookShelf Expo application before adding any new product features or making any TomeKeeper branding/design changes.
+
+Do not rebrand the app yet. Do not change its colors, typography, icons, navigation design, database architecture, or authentication. Preserve the working barcode and cover scanner behavior.
+
+First inspect the existing implementation and run the baseline checks:
+
+```bash
+pnpm run typecheck
+```
+
+Record any existing errors before changing files.
+
+Relevant areas:
+
+* `artifacts/bookshelf/context/LibraryContext.tsx`
+* `artifacts/bookshelf/app/(tabs)/scanner.tsx`
+* `artifacts/bookshelf/app/(tabs)/settings.tsx`
+* `artifacts/bookshelf/app/_layout.tsx`
+* `artifacts/bookshelf/utils/googleBooks.ts`
+* `artifacts/api-server/src/routes/books.ts`
+* `artifacts/api-server/src/app.ts`
+* `lib/api-spec/openapi.yaml`
+* `lib/api-client-react`
+* `lib/api-zod`
+* `lib/integrations-openai-ai-server`
+
+Functional requirements:
+
+1. Fix library state and persistence.
+
+* Replace state mutations that close over the current `books` array with functional `setBooks(current => ...)` updates.
+* Load AsyncStorage safely with `try/catch`.
+* Do not overwrite storage with an empty library before the initial storage load finishes.
+* Persist library changes through one reliable persistence path.
+* Log storage failures safely without crashing the application.
+* Preserve the existing AsyncStorage key and all existing saved libraries.
+* Normalize ISBNs by removing spaces and hyphens and uppercasing `X`.
+* Use normalized ISBNs for duplicate detection.
+* Prevent duplicates when the same ISBN is entered with different formatting.
+* Clamp page progress between zero and the book’s page count.
+* Clamp ratings between one and five.
+* Clear `dateFinished` if a finished book is changed back to Reading or To Read.
+
+2. Fix “Clear All Books.”
+
+* Add one atomic `clearBooks()` context operation.
+* Update the Stats & Settings screen to use it.
+* Do not loop through the library calling `removeBook()` repeatedly.
+* Confirm that clearing the library removes every book from state and AsyncStorage.
+
+3. Make ISBN catalog lookup resilient.
+
+* Keep `GET /api/books/isbn/:isbn` server-side.
+* Validate ISBN-10 and ISBN-13 checksums.
+* Query Google Books using the server-only `GOOGLE_BOOKS_API_KEY`.
+* Never expose that key through an `EXPO_PUBLIC_*` variable.
+* Add Open Library as a fallback when Google:
+
+  * returns no matching item,
+  * returns a quota/rate-limit error,
+  * is temporarily unreachable.
+* Preserve the originally requested ISBN when the fallback record does not provide a better edition-specific ISBN.
+* Return:
+
+  * `400` for an invalid ISBN,
+  * `404` only after all available catalogs successfully return no match,
+  * `502` when catalogs fail and no fallback result can be returned.
+
+4. Move title/author edition searches to the server.
+
+* Add `GET /api/books/search`.
+* Accept a required title and optional author and publisher.
+* Validate and limit query-string lengths.
+* Search Google Books using the server-only API key.
+* Retry without publisher when publisher-specific searching returns no results.
+* Add Open Library title/author search as a fallback.
+* Return multiple candidate editions.
+* Deduplicate candidates by ISBN.
+* Keep the existing client-side ranking using title, author, publisher, and edition text.
+* Update `artifacts/bookshelf/utils/googleBooks.ts` so it no longer calls `googleapis.com` directly.
+
+5. Complete the existing manual-entry fallback.
+
+The current “Enter Manually” flow only performs another ISBN lookup. Users must still be able to add a book when every catalog lacks it.
+
+Add or complete a manual book-details screen with:
+
+* Title, required
+* Authors, optional
+* ISBN-10 or ISBN-13, optional
+* Publisher, optional
+* Publication date, optional
+* Page count, optional
+* Cover image URL, optional
+
+Requirements:
+
+* Books may be saved without an ISBN.
+* If an ISBN is entered, validate its checksum.
+* Prevent duplicate normalized ISBNs.
+* Prefill the ISBN after an unsuccessful ISBN lookup.
+* Prefill recognized title, authors, publisher, and possible ISBN after successful cover recognition with no catalog match.
+* Add the book through the existing `LibraryContext.addBook()` behavior.
+* Do not introduce database storage.
+
+6. Isolate the optional AI integration.
+
+* The API server must be able to start when the OpenAI/Replit AI integration is not configured.
+* Health checks, ISBN lookup, and title search must still work without AI credentials.
+* Create the OpenAI client lazily only when `POST /api/books/identify-cover` is called.
+* Missing AI configuration should make only the cover-identification request return a safe `502`.
+* It must not crash the entire API process.
+* Do not delete or modify configured Replit secrets while testing this behavior.
+
+7. Preserve and verify cover scanning.
+
+* Continue using `CameraView`.
+* Continue accepting EAN-13 barcode scanning.
+* Keep `takePictureAsync()` at approximately `quality: 0.6`.
+* Do not use `skipProcessing: true`.
+* Keep the 8 MB decoded-image limit.
+* Keep strict Base64 and allowed-MIME validation.
+* Keep the existing rate limit.
+* Do not log images, Base64 data, or secrets.
+* Maintain separate messages for:
+
+  * network failure,
+  * rate limiting,
+  * recognition service failure,
+  * low-confidence image,
+  * recognized cover with no catalog edition.
+
+8. Update generated API contracts.
+
+* Add the book-search endpoint to `lib/api-spec/openapi.yaml`.
+* Document the Open Library fallback on ISBN lookup.
+* Regenerate the React Query client and Zod schemas using the existing code-generation command.
+* Do not manually edit generated files when code generation is available.
+
+9. Do not perform unrelated cleanup.
+
+Specifically, do not:
+
+* Rename BookShelf to TomeKeeper yet.
+* Change the package name, slug, scheme, or AsyncStorage key.
+* Change visual styling or screen density.
+* Replace the navigation or native tab bar.
+* Add authentication.
+* Add database tables or cloud synchronization.
+* Upgrade unrelated dependencies.
+* Remove the mockup sandbox.
+* Modify secrets or commit secret values.
+
+Required verification:
+
+1. Run the full workspace typecheck:
+
+```bash
+pnpm run typecheck
+```
+
+2. Build the API server:
+
+```bash
+pnpm --filter @workspace/api-server run build
+```
+
+3. Start the API server and confirm:
+
+```text
+GET /api/healthz
+→ 200 {"status":"ok"}
+```
+
+4. Test a normal catalog ISBN:
+
+```text
+9780743273565
+```
+
+It must return a record for The Great Gatsby from Google Books or Open Library.
+
+5. Test the previously missing Springer ISBN:
+
+```text
+9789811600609
+```
+
+It should return:
+
+```text
+Maxwell's Equations in Periodic Structures
+Gang Bao and Peijun Li
+Springer Singapore
+2021
+```
+
+6. Test an invalid checksum:
+
+```text
+1234567890
+```
+
+It must return HTTP 400.
+
+7. Test title search for:
+
+```text
+Title: The Great Gatsby
+Author: F. Scott Fitzgerald
+```
+
+It must return candidate editions even when Google Books returns a quota error, using Open Library as necessary.
+
+8. In a temporary process only, test the API without AI integration variables:
+
+* `/api/healthz` must still return 200.
+* ISBN lookup must still work.
+* Cover identification may return 502.
+* The server must remain running after that 502.
+
+9. Verify these library behaviors:
+
+* Add two books rapidly without losing either.
+* Enter the same ISBN once with hyphens and once without; only one copy should be added.
+* Change a book’s reading status.
+* Update page progress.
+* Rate a finished book.
+* Restart the app and confirm everything persists.
+* Clear All Books and confirm the library stays empty after restarting.
+
+10. Provide an on-device checklist for anything Replit cannot directly automate:
+
+* Barcode scan
+* Clear cover photo
+* Rotated cover photo
+* Non-book image
+* Camera permission denied
+* Camera permission permanently denied
+* Manual ISBN
+* Manual book without ISBN
+
+When finished, report:
+
+* Every file changed
+* Every defect fixed
+* Exact typecheck/build results
+* Exact API test results and status codes
+* Any on-device tests that still need to be performed manually
+* Any remaining blocker
+
+Do not claim success if typechecking, building, or API verification fails. Fix failures within this stabilization scope and rerun the checks.
