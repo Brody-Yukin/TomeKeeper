@@ -1,0 +1,1 @@
+- [Cover scan API access](cover-scan-api.md) — Expo app reaches api-server via EXPO_PUBLIC_API_URL override or EXPO_PUBLIC_DOMAIN proxy; Google Books rate-limits the workspace's datacenter IP, test on-device.

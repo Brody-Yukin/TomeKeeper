@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: books
+    description: Book identification operations
+paths:
+  /books/identify-cover:
+    post:
+      operationId: identifyBookCover
+      tags: [books]
+      summary: Identify a book from a cover photo
+      description: Accepts a base64-encoded cover photo and returns structured cover analysis extracted with server-side image recognition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdentifyCoverRequest"
+      responses:
+        "200":
+          description: Cover analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoverAnalysis"
+        "400":
+          description: Invalid request (bad MIME type or image too large)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /books/isbn/{isbn}:
+    get:
+      operationId: getBookByIsbn
+      tags: [books]
+      summary: Look up a book by ISBN
+      description: Validates and normalizes an ISBN-10 or ISBN-13, then queries the Google Books catalog server-side.
+      parameters:
+        - name: isbn
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ISBN-10 or ISBN-13 (hyphens/spaces allowed)
+      responses:
+        "200":
+          description: Book found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookDetails"
+        "400":
+          description: Invalid ISBN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Catalog responded successfully but has no book for this ISBN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Catalog service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+components:
+  schemas:
+    IdentifyCoverRequest:
+      type: object
+      properties:
+        imageBase64:
+          type: string
+          description: Base64-encoded image bytes (no data URL prefix)
+        mimeType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+      required:
+        - imageBase64
+        - mimeType
+    CoverAnalysis:
+      type: object
+      properties:
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        publisher:
+          type: string
+        editionText:
+          type: string
+        possibleIsbn:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+      required:
+        - title
+        - authors
+        - publisher
+        - editionText
+        - possibleIsbn
+        - confidence
+    BookDetails:
+      type: object
+      properties:
+        isbn:
+          type: string
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        pageCount:
+          type: number
+        coverUrl:
+          type: string
+        publisher:
+          type: string
+        publishedDate:
+          type: string
+        categories:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+      required:
+        - isbn
+        - title
+        - authors
+        - description
+        - pageCount
+        - coverUrl
+        - publisher
+        - publishedDate
+        - categories
+        - language
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
