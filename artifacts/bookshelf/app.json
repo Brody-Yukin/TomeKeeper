@@ -1,22 +1,25 @@
 {
   "expo": {
-    "name": "BookShelf",
-    "slug": "bookshelf",
+    "name": "TomeKeeper",
+    "slug": "tomekeeper",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "bookshelf",
+    "scheme": "tomekeeper",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#f7f5f0"
+      "backgroundColor": "#071a2a"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tomekeeper.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.tomekeeper.app"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -32,7 +35,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "BookShelf needs camera access to scan book barcodes and photograph book covers."
+          "cameraPermission": "TomeKeeper uses your camera to scan book barcodes and identify book covers."
         }
       ]
     ],

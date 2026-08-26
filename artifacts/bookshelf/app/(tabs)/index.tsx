@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import BookCard from "@/components/BookCard";
+import BrandMark from "@/components/BrandMark";
 import FilterBar from "@/components/FilterBar";
 import {
   Book,
@@ -126,15 +127,20 @@ export default function LibraryScreen() {
       backgroundColor: colors.background,
     },
     header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
       paddingHorizontal: 16,
       paddingTop: Platform.OS === "web" ? 83 : insets.top + 8,
-      paddingBottom: 10,
+      paddingBottom: 12,
       backgroundColor: colors.background,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+    },
+    brandRow: {
+      marginBottom: 14,
+    },
+    libraryRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
     },
     headerTitle: {
       fontSize: 22,
@@ -142,9 +148,14 @@ export default function LibraryScreen() {
       color: colors.foreground,
     },
     headerSubtitle: {
-      fontSize: 13,
-      fontFamily: "Inter_400Regular",
-      color: colors.mutedForeground,
+      fontSize: 12,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.accentForeground,
+      backgroundColor: colors.accent,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+      borderRadius: 12,
+      overflow: "hidden",
     },
     headerRight: {
       flexDirection: "row",
@@ -181,13 +192,13 @@ export default function LibraryScreen() {
     },
     scanBtn: {
       marginTop: 24,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.accent,
       borderRadius: colors.radius,
       paddingHorizontal: 20,
       paddingVertical: 12,
     },
     scanBtnText: {
-      color: colors.primaryForeground,
+      color: colors.accentForeground,
       fontFamily: "Inter_600SemiBold",
       fontSize: 15,
     },
@@ -226,33 +237,38 @@ export default function LibraryScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>My Library</Text>
-          <Text style={styles.headerSubtitle}>{books.length} books</Text>
+        <View style={styles.brandRow}>
+          <BrandMark compact />
         </View>
-        <View style={styles.headerRight}>
-          <Pressable
-            style={styles.iconBtn}
-            onPress={() => {
-              setShowFilters((v) => !v);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <Feather
-              name="sliders"
-              size={22}
-              color={showFilters ? colors.accent : colors.foreground}
-            />
-          </Pressable>
-          <Pressable
-            style={styles.iconBtn}
-            onPress={() => {
-              router.push("/(tabs)/scanner");
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <Feather name="plus" size={26} color={colors.foreground} />
-          </Pressable>
+        <View style={styles.libraryRow}>
+          <View>
+            <Text style={styles.headerTitle}>My Library</Text>
+            <Text style={styles.headerSubtitle}>{books.length} books</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <Pressable
+              style={styles.iconBtn}
+              onPress={() => {
+                setShowFilters((v) => !v);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Feather
+                name="sliders"
+                size={21}
+                color={showFilters ? colors.accent : colors.foreground}
+              />
+            </Pressable>
+            <Pressable
+              style={styles.iconBtn}
+              onPress={() => {
+                router.push("/(tabs)/scanner");
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Feather name="plus" size={25} color={colors.foreground} />
+            </Pressable>
+          </View>
         </View>
       </View>
 
