@@ -22,6 +22,7 @@ import type {
   ErrorResponse,
   HealthStatus,
   IdentifyCoverRequest,
+  SearchBooksParams,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -121,7 +122,7 @@ export const useIdentifyBookCover = <
 };
 
 /**
- * Validates and normalizes an ISBN-10 or ISBN-13, then queries the Google Books catalog server-side.
+ * Validates and normalizes an ISBN-10 or ISBN-13, then queries Google Books with a server-only key and Open Library as a fallback.
  * @summary Look up a book by ISBN
  */
 export const getGetBookByIsbnUrl = (isbn: string) => {
@@ -200,6 +201,101 @@ export function useGetBookByIsbn<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetBookByIsbnQueryOptions(isbn, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Searches Google Books with a server-only key, retries without publisher when needed, and falls back to Open Library. Returns multiple deduplicated candidates.
+ * @summary Search books by title and optional metadata
+ */
+export const getSearchBooksUrl = (params: SearchBooksParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/books/search?${stringifiedParams}`
+    : `/api/books/search`;
+};
+
+export const searchBooks = async (
+  params: SearchBooksParams,
+  options?: RequestInit,
+): Promise<BookDetails[]> => {
+  return customFetch<BookDetails[]>(getSearchBooksUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchBooksQueryKey = (params?: SearchBooksParams) => {
+  return [`/api/books/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchBooksQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchBooks>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: SearchBooksParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchBooks>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchBooksQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchBooks>>> = ({
+    signal,
+  }) => searchBooks(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchBooks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchBooksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchBooks>>
+>;
+export type SearchBooksQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Search books by title and optional metadata
+ */
+
+export function useSearchBooks<
+  TData = Awaited<ReturnType<typeof searchBooks>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: SearchBooksParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchBooks>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchBooksQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

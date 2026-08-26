@@ -12,7 +12,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,7 +32,6 @@ type Phase =
   | "found"
   | "not-found"
   | "already-added"
-  | "manual"
   | "cover-loading"
   | "cover-results"
   | "cover-not-found";
@@ -63,10 +61,15 @@ export default function ScannerScreen() {
   const [phase, setPhase] = useState<Phase>("scan");
   const [scannedISBN, setScannedISBN] = useState("");
   const [foundBook, setFoundBook] = useState<BookInfo | null>(null);
-  const [manualISBN, setManualISBN] = useState("");
   const [candidates, setCandidates] = useState<BookInfo[]>([]);
   const [coverError, setCoverError] = useState("");
   const [lookupError, setLookupError] = useState("");
+  const [manualPrefill, setManualPrefill] = useState<{
+    isbn?: string;
+    title?: string;
+    authors?: string[];
+    publisher?: string;
+  }>({});
   const [cameraReady, setCameraReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
@@ -74,7 +77,8 @@ export default function ScannerScreen() {
   const scanCooldown = useRef(false);
 
   const handleBarcode = async ({ data }: { data: string }) => {
-    if (capturing || scanCooldown.current || data === lastScanned.current) return;
+    if (capturing || scanCooldown.current || data === lastScanned.current)
+      return;
     lastScanned.current = data;
     scanCooldown.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -110,10 +114,31 @@ export default function ScannerScreen() {
           "The book catalog service is having trouble right now. Please try again shortly.",
         );
       } else {
-        setLookupError("Something went wrong looking up this book. Please try again.");
+        setLookupError(
+          "Something went wrong looking up this book. Please try again.",
+        );
       }
       setPhase("not-found");
     }
+  };
+
+  const openManualEntry = (
+    prefill: {
+      isbn?: string;
+      title?: string;
+      authors?: string[];
+      publisher?: string;
+    } = {},
+  ) => {
+    router.push({
+      pathname: "/book/manual",
+      params: {
+        isbn: prefill.isbn ?? "",
+        title: prefill.title ?? "",
+        authors: prefill.authors?.join(", ") ?? "",
+        publisher: prefill.publisher ?? "",
+      },
+    });
   };
 
   const handleScanCover = async () => {
@@ -126,9 +151,7 @@ export default function ScannerScreen() {
         base64: true,
       });
       if (!photo?.base64) {
-        setCoverError(
-          "We couldn't capture a photo. Please try again.",
-        );
+        setCoverError("We couldn't capture a photo. Please try again.");
         setPhase("cover-not-found");
         return;
       }
@@ -197,12 +220,20 @@ export default function ScannerScreen() {
       }
 
       if (results.length === 0 && analysis.title) {
-        results = await searchBooksByTitleAuthor({
-          title: analysis.title,
-          author: analysis.authors[0],
-          publisher: analysis.publisher,
-          editionText: analysis.editionText,
-        });
+        try {
+          results = await searchBooksByTitleAuthor({
+            title: analysis.title,
+            author: analysis.authors[0],
+            publisher: analysis.publisher,
+            editionText: analysis.editionText,
+          });
+        } catch {
+          setCoverError(
+            "Couldn't reach the book catalog. Check your internet connection and try again.",
+          );
+          setPhase("cover-not-found");
+          return;
+        }
       }
 
       if (results.length > 0) {
@@ -210,6 +241,12 @@ export default function ScannerScreen() {
         setPhase("cover-results");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
+        setManualPrefill({
+          isbn: analysis.possibleIsbn,
+          title: analysis.title,
+          authors: analysis.authors,
+          publisher: analysis.publisher,
+        });
         setCoverError(
           analysis.title
             ? `We recognized "${analysis.title}" but couldn't find a matching edition. Try scanning the barcode or entering the ISBN manually.`
@@ -233,7 +270,19 @@ export default function ScannerScreen() {
       setPhase("already-added");
       return;
     }
-    addBook(book);
+    const result = addBook(book);
+    if (!result.added) {
+      setScannedISBN(book.isbn);
+      if (result.reason === "duplicate") {
+        setPhase("already-added");
+      } else {
+        setLookupError(
+          "Your library is still loading. Please try again in a moment.",
+        );
+        setPhase("not-found");
+      }
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.push("/(tabs)");
     resetScan();
@@ -241,7 +290,18 @@ export default function ScannerScreen() {
 
   const handleAdd = () => {
     if (!foundBook) return;
-    addBook(foundBook);
+    const result = addBook(foundBook);
+    if (!result.added) {
+      if (result.reason === "duplicate") {
+        setPhase("already-added");
+      } else {
+        setLookupError(
+          "Your library is still loading. Please try again in a moment.",
+        );
+        setPhase("not-found");
+      }
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.push("/(tabs)");
   };
@@ -249,10 +309,10 @@ export default function ScannerScreen() {
   const resetScan = () => {
     lastScanned.current = "";
     setFoundBook(null);
-    setManualISBN("");
     setCandidates([]);
     setCoverError("");
     setLookupError("");
+    setManualPrefill({});
     setPhase("scan");
   };
 
@@ -541,13 +601,19 @@ export default function ScannerScreen() {
   if (!permission.granted) {
     return (
       <View style={[styles.permissionContainer, { paddingTop: insets.top }]}>
-        <Ionicons name="camera-outline" size={60} color={colors.mutedForeground} />
+        <Ionicons
+          name="camera-outline"
+          size={60}
+          color={colors.mutedForeground}
+        />
         <Text style={styles.permTitle}>Camera Access Needed</Text>
         <Text style={styles.permText}>
           Allow camera access to scan book barcodes or snap a photo of the
           cover. You can also enter an ISBN manually below.
         </Text>
-        {permission.status === "denied" && !permission.canAskAgain && Platform.OS !== "web" ? (
+        {permission.status === "denied" &&
+        !permission.canAskAgain &&
+        Platform.OS !== "web" ? (
           <Pressable
             style={styles.primaryBtn}
             onPress={() => {
@@ -566,46 +632,9 @@ export default function ScannerScreen() {
         <View style={{ height: 12 }} />
         <Pressable
           style={styles.secondaryBtn}
-          onPress={() => setPhase("manual")}
+          onPress={() => openManualEntry()}
         >
-          <Text style={styles.secondaryBtnText}>Enter ISBN Manually</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  if (phase === "manual") {
-    return (
-      <View style={[styles.sheet, { paddingTop: insets.top + 24 }]}>
-        <Pressable style={{ marginBottom: 24 }} onPress={resetScan}>
-          <Feather name="arrow-left" size={24} color={colors.foreground} />
-        </Pressable>
-        <Text style={styles.sheetTitle}>Enter ISBN</Text>
-        <Text style={styles.sheetSubtitle}>
-          Type the ISBN number found on the back of the book
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. 9780743273565"
-          placeholderTextColor={colors.mutedForeground}
-          value={manualISBN}
-          onChangeText={setManualISBN}
-          keyboardType="number-pad"
-          maxLength={17}
-          autoFocus
-        />
-        <Pressable
-          style={[styles.primaryBtn, { opacity: manualISBN.length < 10 ? 0.5 : 1 }]}
-          onPress={() => {
-            if (manualISBN.length >= 10) processISBN(manualISBN);
-          }}
-          disabled={manualISBN.length < 10}
-        >
-          <Text style={styles.primaryBtnText}>Search</Text>
-        </Pressable>
-        <View style={{ height: 12 }} />
-        <Pressable style={styles.secondaryBtn} onPress={resetScan}>
-          <Text style={styles.secondaryBtnText}>Back to Scanner</Text>
+          <Text style={styles.secondaryBtnText}>Enter Manually</Text>
         </Pressable>
       </View>
     );
@@ -615,7 +644,9 @@ export default function ScannerScreen() {
     return (
       <View style={[styles.sheet, { alignItems: "center" }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.sheetTitle, { marginTop: 20, textAlign: "center" }]}>
+        <Text
+          style={[styles.sheetTitle, { marginTop: 20, textAlign: "center" }]}
+        >
           Looking up book...
         </Text>
         <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
@@ -629,7 +660,9 @@ export default function ScannerScreen() {
     return (
       <View style={[styles.sheet, { alignItems: "center" }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.sheetTitle, { marginTop: 20, textAlign: "center" }]}>
+        <Text
+          style={[styles.sheetTitle, { marginTop: 20, textAlign: "center" }]}
+        >
           Identifying cover...
         </Text>
         <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
@@ -712,9 +745,20 @@ export default function ScannerScreen() {
 
   if (phase === "cover-not-found") {
     return (
-      <View style={[styles.sheet, { paddingTop: insets.top + 24, alignItems: "center" }]}>
-        <Ionicons name="image-outline" size={56} color={colors.mutedForeground} />
-        <Text style={[styles.sheetTitle, { textAlign: "center", marginTop: 16 }]}>
+      <View
+        style={[
+          styles.sheet,
+          { paddingTop: insets.top + 24, alignItems: "center" },
+        ]}
+      >
+        <Ionicons
+          name="image-outline"
+          size={56}
+          color={colors.mutedForeground}
+        />
+        <Text
+          style={[styles.sheetTitle, { textAlign: "center", marginTop: 16 }]}
+        >
           Couldn't Identify Cover
         </Text>
         <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
@@ -725,8 +769,11 @@ export default function ScannerScreen() {
           <Text style={styles.primaryBtnText}>Try Again</Text>
         </Pressable>
         <View style={{ height: 12 }} />
-        <Pressable style={styles.secondaryBtn} onPress={() => setPhase("manual")}>
-          <Text style={styles.secondaryBtnText}>Enter ISBN Manually</Text>
+        <Pressable
+          style={styles.secondaryBtn}
+          onPress={() => openManualEntry(manualPrefill)}
+        >
+          <Text style={styles.secondaryBtnText}>Enter Manually</Text>
         </Pressable>
       </View>
     );
@@ -775,9 +822,20 @@ export default function ScannerScreen() {
 
   if (phase === "not-found") {
     return (
-      <View style={[styles.sheet, { paddingTop: insets.top + 24, alignItems: "center" }]}>
-        <Ionicons name="search-outline" size={56} color={colors.mutedForeground} />
-        <Text style={[styles.sheetTitle, { textAlign: "center", marginTop: 16 }]}>
+      <View
+        style={[
+          styles.sheet,
+          { paddingTop: insets.top + 24, alignItems: "center" },
+        ]}
+      >
+        <Ionicons
+          name="search-outline"
+          size={56}
+          color={colors.mutedForeground}
+        />
+        <Text
+          style={[styles.sheetTitle, { textAlign: "center", marginTop: 16 }]}
+        >
           {lookupError.startsWith("We couldn't find") || !lookupError
             ? "Book Not Found"
             : "Lookup Failed"}
@@ -789,7 +847,10 @@ export default function ScannerScreen() {
           <Text style={styles.primaryBtnText}>Try Again</Text>
         </Pressable>
         <View style={{ height: 12 }} />
-        <Pressable style={styles.secondaryBtn} onPress={() => setPhase("manual")}>
+        <Pressable
+          style={styles.secondaryBtn}
+          onPress={() => openManualEntry({ isbn: scannedISBN })}
+        >
           <Text style={styles.secondaryBtnText}>Enter Manually</Text>
         </Pressable>
       </View>
@@ -798,15 +859,25 @@ export default function ScannerScreen() {
 
   if (phase === "already-added") {
     return (
-      <View style={[styles.sheet, { paddingTop: insets.top + 24, alignItems: "center" }]}>
+      <View
+        style={[
+          styles.sheet,
+          { paddingTop: insets.top + 24, alignItems: "center" },
+        ]}
+      >
         <Ionicons name="library-outline" size={56} color={colors.accent} />
-        <Text style={[styles.sheetTitle, { textAlign: "center", marginTop: 16 }]}>
+        <Text
+          style={[styles.sheetTitle, { textAlign: "center", marginTop: 16 }]}
+        >
           Already in Library
         </Text>
         <Text style={[styles.sheetSubtitle, { textAlign: "center" }]}>
           This book is already in your collection.
         </Text>
-        <Pressable style={styles.primaryBtn} onPress={() => router.push("/(tabs)")}>
+        <Pressable
+          style={styles.primaryBtn}
+          onPress={() => router.push("/(tabs)")}
+        >
           <Text style={styles.primaryBtnText}>Go to Library</Text>
         </Pressable>
         <View style={{ height: 12 }} />
@@ -827,7 +898,9 @@ export default function ScannerScreen() {
         barcodeScannerSettings={{
           barcodeTypes: ["ean13", "ean8"],
         }}
-        onBarcodeScanned={phase === "scan" && !capturing ? handleBarcode : undefined}
+        onBarcodeScanned={
+          phase === "scan" && !capturing ? handleBarcode : undefined
+        }
       />
       <View style={styles.overlay} pointerEvents="none">
         <View style={{ position: "relative" }}>
@@ -857,12 +930,9 @@ export default function ScannerScreen() {
           )}
           <Text style={styles.coverBtnText}>Scan Cover Instead</Text>
         </Pressable>
-        <Pressable
-          style={styles.manualBtn}
-          onPress={() => setPhase("manual")}
-        >
+        <Pressable style={styles.manualBtn} onPress={() => openManualEntry()}>
           <Feather name="edit-2" size={16} color="#fff" />
-          <Text style={styles.manualBtnText}>Enter ISBN Manually</Text>
+          <Text style={styles.manualBtnText}>Enter Manually</Text>
         </Pressable>
       </View>
     </View>

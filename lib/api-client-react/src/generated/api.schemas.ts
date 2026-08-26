@@ -53,3 +53,22 @@ export interface ErrorResponse {
 export interface HealthStatus {
   status: string;
 }
+
+export type SearchBooksParams = {
+  /**
+   * Book title
+   * @minLength 1
+   * @maxLength 200
+   */
+  title: string;
+  /**
+   * Optional author name
+   * @maxLength 200
+   */
+  author?: string;
+  /**
+   * Optional publisher name
+   * @maxLength 200
+   */
+  publisher?: string;
+};

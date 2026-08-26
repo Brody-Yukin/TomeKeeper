@@ -31,38 +31,6 @@ export interface BookInfo {
   language: string;
 }
 
-
-function volumeToBookInfo(volume: any): BookInfo | null {
-  const info = volume?.volumeInfo || {};
-  if (!info.title) return null;
-
-  const identifiers: { type: string; identifier: string }[] =
-    info.industryIdentifiers || [];
-  const isbn13 = identifiers.find((i) => i.type === "ISBN_13")?.identifier || "";
-  const isbn10 = identifiers.find((i) => i.type === "ISBN_10")?.identifier || "";
-
-  const thumbnail =
-    info.imageLinks?.extraLarge ||
-    info.imageLinks?.large ||
-    info.imageLinks?.medium ||
-    info.imageLinks?.thumbnail ||
-    info.imageLinks?.smallThumbnail ||
-    "";
-
-  return {
-    isbn: isbn13 || isbn10 || volume?.id || "",
-    title: info.title || "Unknown Title",
-    authors: info.authors || [],
-    description: info.description || "",
-    pageCount: info.pageCount || 0,
-    coverUrl: thumbnail.replace("http://", "https://"),
-    publisher: info.publisher || "",
-    publishedDate: info.publishedDate || "",
-    categories: info.categories || [],
-    language: info.language || "en",
-  };
-}
-
 export interface CoverSearchParams {
   title: string;
   author?: string;
@@ -104,24 +72,14 @@ function scoreCandidate(book: BookInfo, params: CoverSearchParams): number {
   return score;
 }
 
-async function runVolumesQuery(q: string): Promise<BookInfo[]> {
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&printType=books`;
-  const resp = await fetch(url);
-  if (!resp.ok) return [];
-  const data = await resp.json();
-  if (!data.items || data.items.length === 0) return [];
-  const results: BookInfo[] = [];
-  for (const volume of data.items) {
-    const book = volumeToBookInfo(volume);
-    if (book) results.push(book);
-  }
-  return results;
+function normalizeIsbn(value: string): string {
+  return value.replace(/[\s-]/g, "").toUpperCase();
 }
 
 /**
- * Search Google Books using everything extracted from the cover (title,
- * author, publisher, edition text), returning multiple candidate editions
- * ranked by how well they match — never auto-picking the first result.
+ * Search the server-side catalog using everything extracted from the cover,
+ * returning multiple candidate editions ranked by how well they match —
+ * never auto-picking the first result.
  */
 export async function searchBooksByTitleAuthor(
   params: CoverSearchParams,
@@ -129,31 +87,34 @@ export async function searchBooksByTitleAuthor(
   const title = params.title.trim();
   if (!title) return [];
 
-  let q = `intitle:${title}`;
-  if (params.author?.trim()) {
-    q += `+inauthor:${params.author.trim()}`;
-  }
-  if (params.publisher?.trim()) {
-    q += `+inpublisher:${params.publisher.trim()}`;
-  }
+  const searchParams = new URLSearchParams({ title });
+  if (params.author?.trim()) searchParams.set("author", params.author.trim());
+  if (params.publisher?.trim())
+    searchParams.set("publisher", params.publisher.trim());
 
-  let items = await runVolumesQuery(q);
-
-  // The publisher printed on the cover often differs from Google Books
-  // metadata; retry without it rather than returning nothing.
-  if (items.length === 0 && params.publisher?.trim()) {
-    let fallbackQ = `intitle:${title}`;
-    if (params.author?.trim()) {
-      fallbackQ += `+inauthor:${params.author.trim()}`;
-    }
-    items = await runVolumesQuery(fallbackQ);
+  let response: Response;
+  try {
+    response = await fetch(
+      apiUrl(`/api/books/search?${searchParams.toString()}`),
+    );
+  } catch {
+    throw new BookLookupError("network", "Could not reach the server");
   }
+  if (response.status === 404) return [];
+  if (!response.ok) {
+    throw new BookLookupError(
+      "catalog",
+      `Book catalog error (${response.status})`,
+    );
+  }
+  const items = (await response.json()) as BookInfo[];
 
   const seen = new Set<string>();
   const results: BookInfo[] = [];
   for (const book of items) {
-    if (!book.isbn || seen.has(book.isbn)) continue;
-    seen.add(book.isbn);
+    const isbn = normalizeIsbn(book.isbn);
+    if (!isbn || seen.has(isbn)) continue;
+    seen.add(isbn);
     results.push(book);
   }
 

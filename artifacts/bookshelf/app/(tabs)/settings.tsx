@@ -18,7 +18,7 @@ import { useColors } from "@/hooks/useColors";
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { books, removeBook } = useLibrary();
+  const { books, clearBooks } = useLibrary();
 
   const totalBooks = books.length;
   const readBooks = books.filter((b) => b.status === "read").length;
@@ -26,7 +26,7 @@ export default function SettingsScreen() {
   const unreadBooks = books.filter((b) => b.status === "unread").length;
   const totalPages = books.reduce(
     (sum, b) => sum + (b.status === "read" ? b.pageCount : b.currentPage),
-    0
+    0,
   );
 
   const styles = StyleSheet.create({
@@ -53,7 +53,8 @@ export default function SettingsScreen() {
     content: {
       paddingHorizontal: 16,
       paddingTop: 16,
-      paddingBottom: Platform.OS === "web" ? insets.bottom + 34 : insets.bottom + 20,
+      paddingBottom:
+        Platform.OS === "web" ? insets.bottom + 34 : insets.bottom + 20,
     },
     sectionTitle: {
       fontSize: 12,
@@ -138,8 +139,10 @@ export default function SettingsScreen() {
 
   const clearAll = () => {
     if (Platform.OS === "web") {
-      if (confirm("Remove all books from your library? This cannot be undone.")) {
-        books.forEach((b) => removeBook(b.id));
+      if (
+        confirm("Remove all books from your library? This cannot be undone.")
+      ) {
+        clearBooks();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     } else {
@@ -152,11 +155,13 @@ export default function SettingsScreen() {
             text: "Clear All",
             style: "destructive",
             onPress: () => {
-              books.forEach((b) => removeBook(b.id));
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              clearBooks();
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Warning,
+              );
             },
           },
-        ]
+        ],
       );
     }
   };
@@ -175,7 +180,9 @@ export default function SettingsScreen() {
               <Text style={styles.statLabel}>Total Books</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={[styles.statValue, styles.statAccent]}>{readBooks}</Text>
+              <Text style={[styles.statValue, styles.statAccent]}>
+                {readBooks}
+              </Text>
               <Text style={styles.statLabel}>Books Read</Text>
             </View>
             <View style={styles.statCard}>
@@ -198,13 +205,21 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>
             <View style={styles.row}>
-              <Ionicons name="book-outline" size={22} color={colors.mutedForeground} />
+              <Ionicons
+                name="book-outline"
+                size={22}
+                color={colors.mutedForeground}
+              />
               <Text style={styles.rowLabel}>BookShelf</Text>
               <Text style={styles.rowValue}>v1.0</Text>
             </View>
             <View style={styles.rowDivider} />
             <View style={styles.row}>
-              <Ionicons name="globe-outline" size={22} color={colors.mutedForeground} />
+              <Ionicons
+                name="globe-outline"
+                size={22}
+                color={colors.mutedForeground}
+              />
               <Text style={styles.rowLabel}>Book Data</Text>
               <Text style={styles.rowValue}>Google Books</Text>
             </View>
@@ -215,9 +230,17 @@ export default function SettingsScreen() {
               <Text style={styles.sectionTitle}>Danger Zone</Text>
               <View style={styles.card}>
                 <Pressable style={styles.destructiveRow} onPress={clearAll}>
-                  <Feather name="trash-2" size={22} color={colors.destructive} />
+                  <Feather
+                    name="trash-2"
+                    size={22}
+                    color={colors.destructive}
+                  />
                   <Text style={styles.destructiveLabel}>Clear All Books</Text>
-                  <Feather name="chevron-right" size={18} color={colors.destructive} />
+                  <Feather
+                    name="chevron-right"
+                    size={18}
+                    color={colors.destructive}
+                  />
                 </Pressable>
               </View>
             </>

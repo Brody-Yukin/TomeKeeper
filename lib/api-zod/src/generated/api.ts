@@ -34,7 +34,7 @@ export const IdentifyBookCoverResponse = zod.object({
 });
 
 /**
- * Validates and normalizes an ISBN-10 or ISBN-13, then queries the Google Books catalog server-side.
+ * Validates and normalizes an ISBN-10 or ISBN-13, then queries Google Books with a server-only key and Open Library as a fallback.
  * @summary Look up a book by ISBN
  */
 export const GetBookByIsbnParams = zod.object({
@@ -55,6 +55,48 @@ export const GetBookByIsbnResponse = zod.object({
   categories: zod.array(zod.string()),
   language: zod.string(),
 });
+
+/**
+ * Searches Google Books with a server-only key, retries without publisher when needed, and falls back to Open Library. Returns multiple deduplicated candidates.
+ * @summary Search books by title and optional metadata
+ */
+export const searchBooksQueryTitleMax = 200;
+
+export const searchBooksQueryAuthorMax = 200;
+
+export const searchBooksQueryPublisherMax = 200;
+
+export const SearchBooksQueryParams = zod.object({
+  title: zod.coerce
+    .string()
+    .min(1)
+    .max(searchBooksQueryTitleMax)
+    .describe("Book title"),
+  author: zod.coerce
+    .string()
+    .max(searchBooksQueryAuthorMax)
+    .optional()
+    .describe("Optional author name"),
+  publisher: zod.coerce
+    .string()
+    .max(searchBooksQueryPublisherMax)
+    .optional()
+    .describe("Optional publisher name"),
+});
+
+export const SearchBooksResponseItem = zod.object({
+  isbn: zod.string(),
+  title: zod.string(),
+  authors: zod.array(zod.string()),
+  description: zod.string(),
+  pageCount: zod.number(),
+  coverUrl: zod.string(),
+  publisher: zod.string(),
+  publishedDate: zod.string(),
+  categories: zod.array(zod.string()),
+  language: zod.string(),
+});
+export const SearchBooksResponse = zod.array(SearchBooksResponseItem);
 
 /**
  * Returns server health status
