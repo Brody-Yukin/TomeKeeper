@@ -18,7 +18,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Artifacts
 
-### BookShelf (Mobile App) — `artifacts/bookshelf`
+### TomeKeeper (Mobile App) — `artifacts/bookshelf`
 An Expo React Native mobile app for managing a personal book library.
 
 **Features:**

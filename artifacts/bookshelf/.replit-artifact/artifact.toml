@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/"
-title = "BookShelf"
+title = "TomeKeeper"
 version = "1.0.0"
 id = "artifacts/bookshelf"
 router = "expo-domain"

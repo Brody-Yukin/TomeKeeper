@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import BrandMark from "@/components/BrandMark";
 import { useLibrary } from "@/context/LibraryContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -46,6 +47,7 @@ export default function SettingsScreen() {
       fontSize: 22,
       fontFamily: "Inter_700Bold",
       color: colors.foreground,
+      marginTop: 14,
     },
     scroll: {
       flex: 1,
@@ -169,6 +171,7 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <BrandMark compact />
         <Text style={styles.headerTitle}>Stats & Settings</Text>
       </View>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -210,7 +213,7 @@ export default function SettingsScreen() {
                 size={22}
                 color={colors.mutedForeground}
               />
-              <Text style={styles.rowLabel}>BookShelf</Text>
+              <Text style={styles.rowLabel}>TomeKeeper</Text>
               <Text style={styles.rowValue}>v1.0</Text>
             </View>
             <View style={styles.rowDivider} />

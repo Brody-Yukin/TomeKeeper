@@ -319,7 +319,7 @@ export default function ScannerScreen() {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: "#0d0d0d",
+      backgroundColor: "#071a2a",
     },
     camera: {
       flex: 1,
@@ -407,7 +407,7 @@ export default function ScannerScreen() {
             : insets.bottom + 16,
       paddingTop: 20,
       paddingHorizontal: 24,
-      backgroundColor: "rgba(0,0,0,0.7)",
+      backgroundColor: "rgba(7,26,42,0.88)",
       gap: 12,
     },
     coverBtn: {
@@ -421,7 +421,7 @@ export default function ScannerScreen() {
       opacity: capturing || !cameraReady ? 0.6 : 1,
     },
     coverBtnText: {
-      color: "#0d0d0d",
+      color: colors.accentForeground,
       fontSize: 15,
       fontFamily: "Inter_600SemiBold",
     },
@@ -433,7 +433,7 @@ export default function ScannerScreen() {
       paddingVertical: 12,
       borderRadius: colors.radius,
       borderWidth: 1.5,
-      borderColor: "rgba(255,255,255,0.3)",
+      borderColor: "rgba(87,183,173,0.8)",
     },
     manualBtnText: {
       color: "#fff",
@@ -924,11 +924,15 @@ export default function ScannerScreen() {
           disabled={capturing || !cameraReady}
         >
           {capturing ? (
-            <ActivityIndicator size="small" color="#0d0d0d" />
+            <ActivityIndicator size="small" color={colors.accentForeground} />
           ) : (
-            <Ionicons name="camera" size={18} color="#0d0d0d" />
+            <Ionicons
+              name="camera"
+              size={18}
+              color={colors.accentForeground}
+            />
           )}
-          <Text style={styles.coverBtnText}>Scan Cover Instead</Text>
+          <Text style={styles.coverBtnText}>Scan Cover</Text>
         </Pressable>
         <Pressable style={styles.manualBtn} onPress={() => openManualEntry()}>
           <Feather name="edit-2" size={16} color="#fff" />

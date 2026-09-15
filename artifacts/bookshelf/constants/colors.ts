@@ -1,31 +1,32 @@
 const colors = {
   light: {
-    text: "#1a1a2e",
-    tint: "#e6a817",
+    text: "#10283a",
+    tint: "#c9983e",
 
-    background: "#f7f5f0",
-    foreground: "#1a1a2e",
+    background: "#f6f0e4",
+    foreground: "#10283a",
 
     card: "#ffffff",
-    cardForeground: "#1a1a2e",
+    cardForeground: "#10283a",
 
-    primary: "#1a1a2e",
+    primary: "#0b2235",
     primaryForeground: "#ffffff",
 
-    secondary: "#e8e3d9",
-    secondaryForeground: "#1a1a2e",
+    secondary: "#e9dfcd",
+    secondaryForeground: "#10283a",
 
-    muted: "#ede9e0",
-    mutedForeground: "#7a7269",
+    muted: "#eee5d6",
+    mutedForeground: "#6f746f",
 
-    accent: "#e6a817",
-    accentForeground: "#1a1a2e",
+    accent: "#c9983e",
+    accentForeground: "#0b2235",
+    brandTeal: "#287f7a",
 
     destructive: "#c0392b",
     destructiveForeground: "#ffffff",
 
-    border: "#ddd8cc",
-    input: "#ddd8cc",
+    border: "#d9cdb9",
+    input: "#d9cdb9",
 
     readColor: "#2ecc71",
     readingColor: "#e6a817",
@@ -33,39 +34,40 @@ const colors = {
   },
 
   dark: {
-    text: "#ece9e2",
-    tint: "#f0b429",
+    text: "#f5efe4",
+    tint: "#e3b85c",
 
-    background: "#15141a",
-    foreground: "#ece9e2",
+    background: "#071a2a",
+    foreground: "#f5efe4",
 
-    card: "#1f1e26",
-    cardForeground: "#ece9e2",
+    card: "#0d2638",
+    cardForeground: "#f5efe4",
 
-    primary: "#ece9e2",
-    primaryForeground: "#15141a",
+    primary: "#e3b85c",
+    primaryForeground: "#071a2a",
 
-    secondary: "#2a2932",
-    secondaryForeground: "#ece9e2",
+    secondary: "#153247",
+    secondaryForeground: "#f5efe4",
 
-    muted: "#2a2932",
-    mutedForeground: "#9a948b",
+    muted: "#153247",
+    mutedForeground: "#9baab2",
 
-    accent: "#f0b429",
-    accentForeground: "#15141a",
+    accent: "#e3b85c",
+    accentForeground: "#071a2a",
+    brandTeal: "#57b7ad",
 
     destructive: "#e05545",
     destructiveForeground: "#ffffff",
 
-    border: "#33323c",
-    input: "#33323c",
+    border: "#254156",
+    input: "#254156",
 
     readColor: "#2ecc71",
     readingColor: "#f0b429",
     unreadColor: "#8a949a",
   },
 
-  radius: 12,
+  radius: 14,
 };
 
 export default colors;
